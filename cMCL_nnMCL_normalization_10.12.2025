@@ -1,0 +1,137 @@
+# the two samples cMCL and nnMCL are based on the reference values from previous 6 samples
+# My new normalization maps each chromosome’s EV in cMCL/nnMCL onto the fixed global amplitude scale, which is defined by the six anchor samples (RBL–PC). 
+# This process ensures cross-sample comparability without changing any of the original six datasets.
+#
+
+out_dir <- 'figures' # Changed output directory to differentiate
+
+load(file.path(out_dir, 'ev.100k_multi_samples_raw.rda'))
+
+# Step A — compute fixed reference targets from the 6 anchors
+# Anchors (already-normalized; do NOT modify these)
+anchors_ev <- list(
+  RBL  = EV.rbl,
+  LCL  = EV.lcl,
+  GCBC = EV.gcbc,
+  MBC  = EV.mbc,
+  NBC  = EV.nbc,
+  PC   = EV.pc
+)
+chroms <- paste0("chr", c(1:22, "X"))
+
+# Recompute X_A and X_B per anchor sample (mean of per-chromosome medians)
+ref_rows <- data.frame(sample=character(), X_A=numeric(), X_B=numeric())
+for (s in names(anchors_ev)) {
+  pos_meds <- neg_meds <- numeric(length(chroms))
+  for (i in seq_along(chroms)) {
+    chr <- chroms[i]
+    v <- anchors_ev[[s]][[chr]]
+    if (is.null(v)) { pos_meds[i] <- NA; neg_meds[i] <- NA; next }
+    v <- v[is.finite(v)]
+    pos <- v[v > 0]; neg <- v[v < 0]
+    pos_meds[i] <- if (length(pos)) median(pos) else NA_real_
+    neg_meds[i] <- if (length(neg)) median(neg) else NA_real_
+  }
+  XA <- mean(pos_meds, na.rm=TRUE)
+  XB <- mean(neg_meds, na.rm=TRUE)
+  ref_rows <- rbind(ref_rows, data.frame(sample=s, X_A=XA, X_B=XB))
+}
+print(ref_rows, digits=6)
+
+# Fixed reference (average across the 6 anchors)
+X_A_ref <- mean(ref_rows$X_A, na.rm=TRUE)
+X_B_ref <- mean(ref_rows$X_B, na.rm=TRUE)
+cat("X_A_ref =", X_A_ref, " ; X_B_ref =", X_B_ref, "\n")
+
+
+# Step B — normalize only cMCL / nnMCL to the fixed reference
+out_dir <- 'figures/figures/ab_fig_2_cMCL_and_nnMCL_10.12.2025' # Changed output directory to differentiate
+load(file.path(out_dir, 'ev.100k_multi_samples_cMCL_nnMCL_10.12.2025.rda'))
+all_ev_lists <- list(
+  cMCL = EV.cMCL,
+  nnMCL = EV.nnMCL
+)
+
+EV.cMCL_norm <- list()
+for (chr in names(EV.cMCL)) {
+  v <- EV.cMCL[[chr]]
+  if (is.null(v)) { EV.cMCL_norm[[chr]] <- NULL; next }
+  v0 <- v
+  pos <- v0[v0 > 0]; neg <- v0[v0 < 0]
+  pos_med <- if (length(pos)) median(pos) else NA_real_
+  neg_med <- if (length(neg)) median(neg) else NA_real_
+  
+  pos_idx <- which(v0 > 0)
+  if (length(pos_idx) && is.finite(pos_med) && pos_med != 0 && is.finite(X_A_ref)) {
+    v0[pos_idx] <- v0[pos_idx] * (X_A_ref / pos_med)
+  } else if (length(pos_idx)) {
+    v0[pos_idx] <- NA_real_
+  }
+  
+  neg_idx <- which(v0 < 0)
+  if (length(neg_idx) && is.finite(neg_med) && neg_med != 0 && is.finite(X_B_ref)) {
+    v0[neg_idx] <- v0[neg_idx] * (X_B_ref / neg_med)
+  } else if (length(neg_idx)) {
+    v0[neg_idx] <- NA_real_
+  }
+  
+  EV.cMCL_norm[[chr]] <- v0
+}
+
+# nnMCL → normalized to (X_A_ref, X_B_ref)
+EV.nnMCL_norm <- list()
+for (chr in names(EV.nnMCL)) {
+  v <- EV.nnMCL[[chr]]
+  if (is.null(v)) { EV.nnMCL_norm[[chr]] <- NULL; next }
+  v0 <- v
+  pos <- v0[v0 > 0]; neg <- v0[v0 < 0]
+  pos_med <- if (length(pos)) median(pos) else NA_real_
+  neg_med <- if (length(neg)) median(neg) else NA_real_
+  
+  pos_idx <- which(v0 > 0)
+  if (length(pos_idx) && is.finite(pos_med) && pos_med != 0 && is.finite(X_A_ref)) {
+    v0[pos_idx] <- v0[pos_idx] * (X_A_ref / pos_med)
+  } else if (length(pos_idx)) {
+    v0[pos_idx] <- NA_real_
+  }
+  
+  neg_idx <- which(v0 < 0)
+  if (length(neg_idx) && is.finite(neg_med) && neg_med != 0 && is.finite(X_B_ref)) {
+    v0[neg_idx] <- v0[neg_idx] * (X_B_ref / neg_med)
+  } else if (length(neg_idx)) {
+    v0[neg_idx] <- NA_real_
+  }
+  
+  EV.nnMCL_norm[[chr]] <- v0
+}
+
+# cMCL pooled medians
+v <- unlist(EV.cMCL_norm, use.names=FALSE); v <- v[is.finite(v)]
+cat("cMCL_norm: pos_med =", median(v[v>0]), " neg_med =", median(v[v<0]), "\n")
+
+# nnMCL pooled medians
+v <- unlist(EV.nnMCL_norm, use.names=FALSE); v <- v[is.finite(v)]
+cat("nnMCL_norm: pos_med =", median(v[v>0]), " neg_med =", median(v[v<0]), "\n")
+
+# Expect both ≈ X_A_ref (positive) and ≈ X_B_ref (negative).
+
+# Step C — Save normalized cMCL / nnMCL EVs
+# ============================================
+
+# Create new output directory if it doesn’t exist
+save_out_dir <- 'figures'   # same main folder as other outputs
+dir.create(save_out_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Assign normalized versions to proper variable names (for downstream compatibility)
+EV.cMCL <- EV.cMCL_norm
+EV.nnMCL <- EV.nnMCL_norm
+
+# Define output filename
+save_file <- file.path(save_out_dir, 'normalized_ev.cMCL_nnMCL_10_12_2025.rda')
+
+# Save the two normalized EV objects
+save(EV.cMCL, EV.nnMCL, file = save_file)
+
+cat("\n------------------------------------------\n")
+cat("✅ Normalized cMCL and nnMCL EVs saved to:\n", save_file, "\n")
+cat("------------------------------------------\n")
