@@ -66,6 +66,7 @@ for (sample in names(median_results)) {
   
   
   # Compute mean
+  # Per-sample global “mean of medians”
   pos_mean <- if (length(pos_vals) > 0) mean(pos_vals) else NA
   neg_mean <- if (length(neg_vals) > 0) mean(neg_vals) else NA
   
