@@ -81,6 +81,58 @@ for(chr_name in chroms){ # Loop by chromosome name for consistent access
   dev.off()
 }
 
+# EV histogram updated 10.22.2025 #
+# --- EV Histograms: Pairwise Comparison (where signs differ, one PDF per chromosome) ---
+num_pairs <- length(sample_names) * (length(sample_names) - 1) / 2
+rows_per_page <- 10  # number of pairs (rows) per page; device will auto-advance pages
+
+for (chr_name in chroms) {
+  pdf(file = file.path(out_dir, paste0(chr_name, '.ev.hist_pairwise_diff_signs.pdf')),
+      width = 18, height = 25)  # comfortable page size
+  par(mfrow = c(rows_per_page, 3), font.lab = 2, cex.lab = 1.0,
+      mar = c(4,4,3,1), oma = c(0,0,0,0))
+
+  pair_count <- 0
+  for (s1_idx in 1:(length(sample_names) - 1)) {
+    for (s2_idx in (s1_idx + 1):length(sample_names)) {
+      pair_count <- pair_count + 1
+
+      sample1_name <- sample_names[s1_idx]
+      sample2_name <- sample_names[s2_idx]
+
+      ev1 <- all_ev_lists[[sample1_name]][[chr_name]]
+      ev2 <- all_ev_lists[[sample2_name]][[chr_name]]
+
+      # robust sign compare: only where both are non-NA
+      idx <- which(!is.na(ev1) & !is.na(ev2))
+      has_data <- length(idx) > 0
+
+      if (has_data) {
+        ds <- sign(ev1[idx]) != sign(ev2[idx])
+        if (any(ds, na.rm = TRUE)) {
+          hist(ev1[idx][ds], n = 50,
+               main = paste0(chr_name, ': ', sample1_name, ' (vs ', sample2_name, ' diff sign)'),
+               xlab = "EV Value")
+          hist(ev2[idx][ds], n = 50,
+               main = paste0(chr_name, ': ', sample2_name, ' (vs ', sample1_name, ' diff sign)'),
+               xlab = "EV Value")
+          hist(ev2[idx][ds] - ev1[idx][ds], n = 50,
+               main = paste0(chr_name, ': ', sample2_name, ' - ', sample1_name, ' (diff bins)'),
+               xlab = "EV Difference")
+        } else {
+          plot.new(); title(paste0(chr_name, ': ', sample1_name, ' - ', sample2_name, ' (No diff signs)'))
+          plot.new(); plot.new()
+        }
+      } else {
+        plot.new(); title(paste0(chr_name, ': ', sample2_name, ' vs ', sample1_name, ' (No common data)'))
+        plot.new(); plot.new()
+      }
+      # no need to manually start a new page; when mfrow grid fills, PDF auto-advances
+    }
+  }
+  dev.off()
+}
+
 
 
 # MA plot: pairwise comparison across all samples
