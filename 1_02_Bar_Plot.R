@@ -20,9 +20,8 @@ chroms <- paste0('chr',c(1:22,'X'))
 
 for(chr in chroms){
   # Adjust height to accommodate all 6 samples
-  pdf(file = file.path(out_dir, paste0(chr, '.tad.ab.pdf')), width=10, height=12)
-  par(mfrow=c(6,1), font.lab=2, cex.lab=1.2, lty = 0, mar=c(0,4,0,0), oma = c(0,0,0,0), mgp = c(2, 1, 0), xaxs='i', yaxs='i')
-  
+  pdf(file = file.path(out_dir, paste0(chr, '.tad.ab.pdf')), width=10, height=14)
+  par(mfrow=c(8,1), font.lab=2, cex.lab=1.2, lty = 0, mar=c(0,4,0,0), oma = c(0,0,0,0), mgp = c(2, 1, 0), xaxs='i', yaxs='i')
   barplot(EV.rbl[[chr]], col = ifelse(EV.rbl[[chr]] > 0,"red","blue"),space = 0,ylab='RBL EV',ylim=c(-0.12,0.12))
   barplot(EV.lcl[[chr]], col = ifelse(EV.lcl[[chr]] > 0,"red","blue"),space = 0,ylab='LCL EV',ylim=c(-0.12,0.12))
   barplot(EV.gcbc[[chr]], col = ifelse(EV.gcbc[[chr]] > 0,"red","blue"),space = 0,ylab='GCBC EV',ylim=c(-0.12,0.12))
