@@ -35,7 +35,31 @@ for(chr in chroms){
   dev.off()
 }
 
-# EV histogram (for each sample individually)
+# 1.0 check range of EV
+out_file <- file.path(out_dir, "EV_range_summary.txt")
+# Open a connection for writing
+sink(out_file)
+
+cat("EV Range Summary (min and max values per sample)\n")
+cat("------------------------------------------------\n\n")
+
+for (sample_name in names(all_ev_lists)) {
+  cat(sample_name, "\n")
+  for (chr in names(all_ev_lists[[sample_name]])) {
+    ev <- all_ev_lists[[sample_name]][[chr]]
+    cat("  ", chr, ": ",
+        round(min(ev, na.rm = TRUE), 4), " to ",
+        round(max(ev, na.rm = TRUE), 4), "\n")
+  }
+  cat("\n")
+}
+
+# Close the connection
+sink()
+
+cat("✅ EV ranges written to:", out_file, "\n")
+
+# 2.0 EV histogram (for each sample individually)
 pdf(file = file.path(out_dir, 'ev.hist_all_samples.pdf'), width = 9, height = length(chroms) * 2) # Adjusted height
 par(mfrow=c(length(chroms), 6), font.lab=2, cex.lab=1.2) # Adjusted columns to 6
 for(i in seq_along(EV.rbl)){
@@ -51,7 +75,7 @@ for(i in seq_along(EV.rbl)){
 dev.off()
 
 
-# --- EV Histograms: Pairwise Comparison (where signs differ, one PDF per chromosome) ---
+# 3.0 EV Histograms: Pairwise Comparison (where signs differ, one PDF per chromosome) ---
 num_pairs <- length(sample_names) * (length(sample_names) - 1) / 2
 for(chr_name in chroms){ # Loop by chromosome name for consistent access
   pdf(file = file.path(out_dir, paste0(chr_name, '.ev.hist_pairwise_diff_signs.pdf')), width = 18, height = 24)
@@ -81,7 +105,7 @@ for(chr_name in chroms){ # Loop by chromosome name for consistent access
   dev.off()
 }
 
-# EV histogram updated 10.22.2025 #
+# 3.0 EV histogram updated 10.22.2025 #
 # --- EV Histograms: Pairwise Comparison (where signs differ, one PDF per chromosome) ---
 num_pairs <- length(sample_names) * (length(sample_names) - 1) / 2
 rows_per_page <- 10  # number of pairs (rows) per page; device will auto-advance pages
@@ -135,7 +159,7 @@ for (chr_name in chroms) {
 
 
 
-# MA plot: pairwise comparison across all samples
+# 4.0 MA plot: pairwise comparison across all samples
 # This will now generate a separate PDF for each chromosome.
 # Each PDF will contain (N * (N-1) / 2) plots for N samples.
 # For 6 samples, this is 15 plots per chromosome PDF.
@@ -225,7 +249,7 @@ abline(v=0,lty="dashed")
 dev.off()
 
 
-# chr17 染色体示例绘图
+# 5.0 chr17 染色体示例绘图
 chr = 'chr17'
 idx = as.integer((3.35e+7 / 1e+5 + 1):(4.9e+7 / 1e+5))
 EV.rbl.chr = -EV.rbl[[chr]][idx]
@@ -251,7 +275,7 @@ barplot(EV.nnMCL.chr,  col=ifelse(EV.nnMCL.chr  > 0, "red", "blue"), space=0, yl
 
 dev.off()
 
-# chr3 染色体示例绘图
+# 6.0 chr3 染色体示例绘图
 chr = 'chr3'
 idx = as.integer((1.2e+8 / 1e+5 + 1):(1.44e+8 / 1e+5))
 EV.rbl.chr = -EV.rbl[[chr]][idx]
