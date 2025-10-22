@@ -12,6 +12,9 @@ all_ev_lists <- list(
     nnMCL = EV.nnMCL
 )
 
+sample_names <- names(all_ev_lists)
+
+
 # generate compartment a and b figures
 chroms <- paste0('chr',c(1:22,'X'))
 
