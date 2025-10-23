@@ -39,10 +39,8 @@ for(chr in chroms){
 out_file <- file.path(out_dir, "EV_range_summary.txt")
 # Open a connection for writing
 sink(out_file)
-
 cat("EV Range Summary (min and max values per sample)\n")
 cat("------------------------------------------------\n\n")
-
 for (sample_name in names(all_ev_lists)) {
   cat(sample_name, "\n")
   for (chr in names(all_ev_lists[[sample_name]])) {
@@ -53,22 +51,18 @@ for (sample_name in names(all_ev_lists)) {
   }
   cat("\n")
 }
-
 # Close the connection
 sink()
+cat(" EV ranges written to:", out_file, "\n")
 
-cat("✅ EV ranges written to:", out_file, "\n")
-
-# 2.0 EV histogram (for each sample individually)
+# 2.1 EV histogram (for each chromosome in sample individually)
 pdf(file = file.path(out_dir, 'ev.hist_all_samples.pdf'), width = 9, height = length(chroms) * 2) # Adjusted height
 par(mfrow=c(length(chroms), 6), font.lab=2, cex.lab=1.2) # Adjusted columns to 6
 x_limit <- c(-0.15, 0.15)
-
 pdf(file = file.path(out_dir, 'ev.hist_all_samples_fixed.pdf'),
     width = 16, height = length(chroms) * 8)
 par(mfrow = c(length(chroms), 8), font.lab = 2, cex.lab = 1.2,
     mar = c(3,3,2,1), oma = c(0,0,0,0))
-
 for (i in seq_along(EV.rbl)) {
   hist(EV.rbl[[i]], n = 50, main = paste0(names(EV.rbl)[i], ': RBL'),
        xlab = "EV Value", xlim = x_limit)
@@ -89,89 +83,141 @@ for (i in seq_along(EV.rbl)) {
 }
 dev.off()
 
+#2.2 EV histogram single sample (for each sample containing all chromosomes)
+# Fixed axes
+x_limit <- c(-0.15, 0.15)
+breaks  <- seq(x_limit[1], x_limit[2], length.out = 51)  # 50 bins
+# Compute a global y-limit across ALL samples (all chromosomes)
+y_max <- 0
+for (sn in sample_names) {
+  ev_vals <- unlist(all_ev_lists[[sn]], use.names = FALSE)
+  ev_vals <- ev_vals[!is.na(ev_vals)]
+  if (length(ev_vals) > 0) {
+    h <- hist(ev_vals, breaks = breaks, plot = FALSE)
+    y_max <- max(y_max, h$counts, na.rm = TRUE)
+  }
+}
+ylim_fixed <- c(0, ceiling(y_max * 1.05))  # add 5% headroom
+# Plot 8 samples as a 2x4 grid (4 per row) on one page
+pdf(file = file.path(out_dir, 'ev.hist_all_samples_fixed_4perrow_50bins.pdf'),
+    width = 14, height = 7.5)
+par(mfrow = c(2, 4), mar = c(4,4,3,1), oma = c(0,0,0,0), font.lab = 2, cex.lab = 1.2)
+for (sn in sample_names) {
+  ev_vals <- unlist(all_ev_lists[[sn]], use.names = FALSE)
+  ev_vals <- ev_vals[!is.na(ev_vals)]
+  if (length(ev_vals) == 0) {
+    plot(NA, xlim = x_limit, ylim = ylim_fixed,
+         main = paste(sn, "(no data)"), xlab = "EV Value", ylab = "Frequency")
+  } else {
+    hist(ev_vals, breaks = breaks, xlim = x_limit, ylim = ylim_fixed,
+         main = paste(sn, "EV Distribution"), xlab = "EV Value", ylab = "Frequency",
+         col = "gray70", border = "gray30")
+    abline(v = 0, lty = 2, lwd = 2, col = "red")
+  }
+}
+dev.off()
+cat(" Saved:", file.path(out_dir, 'ev.hist_all_samples_fixed_4perrow_50bins.pdf'), "\n")
 
 # 3.0 EV Histograms: Pairwise Comparison (where signs differ, one PDF per chromosome) ---
-num_pairs <- length(sample_names) * (length(sample_names) - 1) / 2
-for(chr_name in chroms){ # Loop by chromosome name for consistent access
-  pdf(file = file.path(out_dir, paste0(chr_name, '.ev.hist_pairwise_diff_signs.pdf')), width = 18, height = 24)
-  par(mfrow=c(num_pairs, 3), font.lab=2, cex.lab=1.2, mar=c(4,4,3,1), oma = c(0,0,0,0)) # Explicit margins
-  
+xlim_fixed <- c(-0.15, 0.15)
+breaks     <- seq(xlim_fixed[1], xlim_fixed[2], length.out = 51)  # 50 bins
+# 3-per-row layout
+cols_per_page  <- 3          # ev1, ev2, difference
+rows_per_page  <- 10         # 10 pairs per page => 30 panels per page
+page_width_in  <- 15         # ~5 in per panel horizontally
+page_height_in <- rows_per_page * 3.5
+# 2) Compute ONE global y-limit across ALL chromosomes & ALL pairs
+global_ymax <- 0
+have_any    <- FALSE
+for (chr_name in chroms) {
   for (s1_idx in 1:(length(sample_names) - 1)) {
     for (s2_idx in (s1_idx + 1):length(sample_names)) {
-      sample1_name <- sample_names[s1_idx]
-      sample2_name <- sample_names[s2_idx]
-      
-      ev1 <- all_ev_lists[[sample1_name]][[chr_name]] # Use chr_name for access
-      ev2 <- all_ev_lists[[sample2_name]][[chr_name]] # Use chr_name for access
-      
-      idx_diff_sign <- sign(ev1) != sign(ev2)
-      
-      if (sum(idx_diff_sign, na.rm = TRUE) > 0) {
-        hist(ev1[idx_diff_sign], n=50, main=paste0(chr_name, ': ', sample1_name, ' (VS ', sample2_name, ' Diff Sign)'), xlab="EV Value")
-        hist(ev2[idx_diff_sign], n=50, main=paste0(chr_name, ': ', sample2_name, ' (VS ', sample1_name, ' Diff Sign)'), xlab="EV Value")
-        hist(ev2[idx_diff_sign] - ev1[idx_diff_sign], n=50, main=paste0(chr_name, ': ', sample2_name, '-', sample1_name, ' (Diff Bins)'), xlab="EV Difference")
-      } else {
-        plot(NA, xlim=c(0,1), ylim=c(0,1), type="n", xlab="", ylab="", main=paste0(chr_name, ': ', sample1_name, '-', sample2_name, ' (No diff signs)'))
-        plot(NA, xlim=c(0,1), ylim=c(0,1), type="n", xlab="", ylab="", main="")
-        plot(NA, xlim=c(0,1), ylim=c(0,1), type="n", xlab="", ylab="", main="") # <--- This was the misplaced line
-      }
+      s1 <- sample_names[s1_idx]; s2 <- sample_names[s2_idx]
+      ev1 <- all_ev_lists[[s1]][[chr_name]]
+      ev2 <- all_ev_lists[[s2]][[chr_name]]
+      if (is.null(ev1) || is.null(ev2)) next
+      ok <- which(is.finite(ev1) & is.finite(ev2))
+      if (length(ok) == 0) next
+      ds <- sign(ev1[ok]) != sign(ev2[ok])
+      if (!any(ds)) next
+      have_any <- TRUE
+      v1 <- ev1[ok][ds]
+      v2 <- ev2[ok][ds]
+      vd <- v2 - v1
+      # IMPORTANT: counts are computed using the same fixed breaks
+      h1 <- hist(v1, breaks = breaks, plot = FALSE)
+      h2 <- hist(v2, breaks = breaks, plot = FALSE)
+      hD <- hist(vd, breaks = breaks, plot = FALSE)
+      global_ymax <- max(global_ymax, h1$counts, h2$counts, hD$counts, na.rm = TRUE)
     }
   }
-  dev.off()
 }
-
-# 3.0 EV histogram updated 10.22.2025 #
-# --- EV Histograms: Pairwise Comparison (where signs differ, one PDF per chromosome) ---
-num_pairs <- length(sample_names) * (length(sample_names) - 1) / 2
-rows_per_page <- 10  # number of pairs (rows) per page; device will auto-advance pages
-
-for (chr_name in chroms) {
-  pdf(file = file.path(out_dir, paste0(chr_name, '.ev.hist_pairwise_diff_signs.pdf')),
-      width = 18, height = 25)  # comfortable page size
-  par(mfrow = c(rows_per_page, 3), font.lab = 2, cex.lab = 1.0,
-      mar = c(4,4,3,1), oma = c(0,0,0,0))
-
-  pair_count <- 0
-  for (s1_idx in 1:(length(sample_names) - 1)) {
-    for (s2_idx in (s1_idx + 1):length(sample_names)) {
-      pair_count <- pair_count + 1
-
-      sample1_name <- sample_names[s1_idx]
-      sample2_name <- sample_names[s2_idx]
-
-      ev1 <- all_ev_lists[[sample1_name]][[chr_name]]
-      ev2 <- all_ev_lists[[sample2_name]][[chr_name]]
-
-      # robust sign compare: only where both are non-NA
-      idx <- which(!is.na(ev1) & !is.na(ev2))
-      has_data <- length(idx) > 0
-
-      if (has_data) {
-        ds <- sign(ev1[idx]) != sign(ev2[idx])
-        if (any(ds, na.rm = TRUE)) {
-          hist(ev1[idx][ds], n = 50,
-               main = paste0(chr_name, ': ', sample1_name, ' (vs ', sample2_name, ' diff sign)'),
-               xlab = "EV Value")
-          hist(ev2[idx][ds], n = 50,
-               main = paste0(chr_name, ': ', sample2_name, ' (vs ', sample1_name, ' diff sign)'),
-               xlab = "EV Value")
-          hist(ev2[idx][ds] - ev1[idx][ds], n = 50,
-               main = paste0(chr_name, ': ', sample2_name, ' - ', sample1_name, ' (diff bins)'),
-               xlab = "EV Difference")
+if (!have_any) {
+  message("No diff-sign bins found anywhere. Writing small info PDFs per chromosome...")
+  for (chr_name in chroms) {
+    pdf(file = file.path(out_dir, paste0(chr_name, '.ev.hist_pairwise_diff_signs.pdf')),
+        width = 8, height = 3)
+    par(mfrow = c(1,1), mar = c(2,2,2,1), oma = c(0,0,0,0))
+    plot.new(); title(main = paste0(chr_name, ": No diff-sign bins across pairs"))
+    dev.off()
+  }
+} else {
+  ylim_fixed <- c(0, ceiling(global_ymax * 1.05))  # headroom
+  # 3) Plot per chromosome, using uniform xlim/ylim everywhere
+  for (chr_name in chroms) {
+    pdf(file = file.path(out_dir, paste0(chr_name, '.ev.hist_pairwise_diff_signs.pdf')),
+        width = page_width_in, height = page_height_in)
+    par(mfrow = c(rows_per_page, cols_per_page),
+        font.lab = 2, cex.lab = 1.0,
+        mar = c(4,4,3,1), oma = c(0,0,0,0))
+    any_pair_plotted <- FALSE
+    for (s1_idx in 1:(length(sample_names) - 1)) {
+      for (s2_idx in (s1_idx + 1):length(sample_names)) {
+        s1 <- sample_names[s1_idx]; s2 <- sample_names[s2_idx]
+        ev1 <- all_ev_lists[[s1]][[chr_name]]
+        ev2 <- all_ev_lists[[s2]][[chr_name]]
+        if (is.null(ev1) || is.null(ev2)) next
+        ok <- which(is.finite(ev1) & is.finite(ev2))
+        if (length(ok) == 0) next
+        ds <- sign(ev1[ok]) != sign(ev2[ok])
+        if (any(ds)) {
+          any_pair_plotted <- TRUE
+          v1 <- ev1[ok][ds]
+          v2 <- ev2[ok][ds]
+          vd <- v2 - v1
+          # ev1
+          hist(v1, breaks = breaks, xlim = xlim_fixed, ylim = ylim_fixed,
+               main = paste0(chr_name, ': ', s1, ' (vs ', s2, ')'),
+               xlab = "EV Value", ylab = "Frequency",
+               col = "gray70", border = "gray30")
+          abline(v = 0, col = "red", lty = 2, lwd = 2)
+          # ev2
+          hist(v2, breaks = breaks, xlim = xlim_fixed, ylim = ylim_fixed,
+               main = paste0(chr_name, ': ', s2, ' (vs ', s1, ')'),
+               xlab = "EV Value", ylab = "Frequency",
+               col = "gray70", border = "gray30")
+          abline(v = 0, col = "red", lty = 2, lwd = 2)
+          # difference
+          hist(vd, breaks = breaks, xlim = xlim_fixed, ylim = ylim_fixed,
+               main = paste0(chr_name, ': ', s2, ' - ', s1),
+               xlab = "EV Difference", ylab = "Frequency",
+               col = "gray70", border = "gray30")
+          abline(v = 0, col = "red", lty = 2, lwd = 2)
         } else {
-          plot.new(); title(paste0(chr_name, ': ', sample1_name, ' - ', sample2_name, ' (No diff signs)'))
+          # consume a full row (3 panels) for pagination consistency
+          plot.new(); title(paste0(chr_name, ': ', s1, ' - ', s2, ' (No diff signs)'))
           plot.new(); plot.new()
         }
-      } else {
-        plot.new(); title(paste0(chr_name, ': ', sample2_name, ' vs ', sample1_name, ' (No common data)'))
-        plot.new(); plot.new()
       }
-      # no need to manually start a new page; when mfrow grid fills, PDF auto-advances
     }
+    if (!any_pair_plotted) {
+      # In case this chromosome specifically has no diff-sign pairs, show a single notice
+      par(mfrow = c(1,1))
+      plot.new(); title(main = paste0(chr_name, ": No diff-sign bins across pairs"))
+    }
+    dev.off()
   }
-  dev.off()
 }
-
 
 
 # 4.0 MA plot: pairwise comparison across all samples
