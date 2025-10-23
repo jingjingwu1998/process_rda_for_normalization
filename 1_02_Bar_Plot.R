@@ -62,15 +62,30 @@ cat("✅ EV ranges written to:", out_file, "\n")
 # 2.0 EV histogram (for each sample individually)
 pdf(file = file.path(out_dir, 'ev.hist_all_samples.pdf'), width = 9, height = length(chroms) * 2) # Adjusted height
 par(mfrow=c(length(chroms), 6), font.lab=2, cex.lab=1.2) # Adjusted columns to 6
-for(i in seq_along(EV.rbl)){
-  hist(EV.rbl[[i]],n=50,main=paste0(names(EV.rbl)[i],': RBL'))
-  hist(EV.lcl[[i]],n=50,main=paste0(names(EV.lcl)[i],': LCL'))
-  hist(EV.gcbc[[i]],n=50,main=paste0(names(EV.gcbc)[i],': GCBC'))
-  hist(EV.mbc[[i]],n=50,main=paste0(names(EV.mbc)[i],': MBC'))
-  hist(EV.nbc[[i]],n=50,main=paste0(names(EV.nbc)[i],': NBC'))
-  hist(EV.pc[[i]],n=50,main=paste0(names(EV.pc)[i],': PC'))
-  hist(EV.cMCL[[i]],n=50,main=paste0(names(EV.cMCL)[i],': cMCL'))
-  hist(EV.nnMCL[[i]],n=50,main=paste0(names(EV.nnMCL)[i],': nnMCL'))
+x_limit <- c(-0.15, 0.15)
+
+pdf(file = file.path(out_dir, 'ev.hist_all_samples_fixed.pdf'),
+    width = 16, height = length(chroms) * 8)
+par(mfrow = c(length(chroms), 8), font.lab = 2, cex.lab = 1.2,
+    mar = c(3,3,2,1), oma = c(0,0,0,0))
+
+for (i in seq_along(EV.rbl)) {
+  hist(EV.rbl[[i]], n = 50, main = paste0(names(EV.rbl)[i], ': RBL'),
+       xlab = "EV Value", xlim = x_limit)
+  hist(EV.lcl[[i]], n = 50, main = paste0(names(EV.lcl)[i], ': LCL'),
+       xlab = "EV Value", xlim = x_limit)
+  hist(EV.gcbc[[i]], n = 50, main = paste0(names(EV.gcbc)[i], ': GCBC'),
+       xlab = "EV Value", xlim = x_limit)
+  hist(EV.mbc[[i]], n = 50, main = paste0(names(EV.mbc)[i], ': MBC'),
+       xlab = "EV Value", xlim = x_limit)
+  hist(EV.nbc[[i]], n = 50, main = paste0(names(EV.nbc)[i], ': NBC'),
+       xlab = "EV Value", xlim = x_limit)
+  hist(EV.pc[[i]], n = 50, main = paste0(names(EV.pc)[i], ': PC'),
+       xlab = "EV Value", xlim = x_limit)
+  hist(EV.cMCL[[i]], n = 50, main = paste0(names(EV.cMCL)[i], ': cMCL'),
+       xlab = "EV Value", xlim = x_limit)
+  hist(EV.nnMCL[[i]], n = 50, main = paste0(names(EV.nnMCL)[i], ': nnMCL'),
+       xlab = "EV Value", xlim = x_limit)
 }
 dev.off()
 
